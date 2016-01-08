@@ -1,5 +1,9 @@
 import requests
 import json
+from twisted.internet import reactor
+from autobahn.twisted.websocket import WebSocketClientProtocol, WebSocketClientFactory
+
+
 from collections import namedtuple
 
 api_key = '0e13c080e89a1b1a34295c066455217880b068e2'
@@ -7,11 +11,9 @@ api_key = '0e13c080e89a1b1a34295c066455217880b068e2'
 def _json_object_hook(d): return namedtuple('X', d.keys())(*d.values())
 def json2obj(data): return json.loads(data, object_hook=_json_object_hook)
 
-
 headers = {
 	'X-Starfighter-Authorization' : api_key
 }
-
 
 def buy(account, venue, symbol, price, qty):
 	url = 'https://api.stockfighter.io/ob/api/venues/%(venue)s/stocks/%(symbol)s/orders' % locals()
@@ -26,7 +28,6 @@ def buy(account, venue, symbol, price, qty):
 	}
 
 	return json2obj(requests.post(url, data=json.dumps(order), headers=headers).text)
-
 
 def sell(account, venue, symbol, price, qty):
 	url = 'https://api.stockfighter.io/ob/api/venues/%(venue)s/stocks/%(symbol)s/orders' % locals()
@@ -55,3 +56,16 @@ def get_quote(venue, symbol):
 def cancel_order(venue, symbol, id):
 	url = 'https://api.stockfighter.io/ob/api/venues/%(venue)s/stocks/%(symbol)s/orders/%(id)s' % locals()
 	return json2obj(requests.delete(url, headers=headers).text)
+
+
+class QuoteClientProtocol(WebSocketClientProtocol):
+	def onMessage(self, payload, isBinary):
+		print ("Received: %(payload)s" % locals())
+
+def quote_stream(account, venue):
+   	factory = WebSocketClientFactory()
+	factory.protocol = QuoteClientProtocol
+	url = 'wss://api.stockfighter.io/ob/api/ws/%(account)s/venues/%(venue)s/tickertape' % locals()
+
+	reactor.connectTCP(url, 80, factory)
+	reactor.run()
