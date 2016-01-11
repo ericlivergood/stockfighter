@@ -2,9 +2,9 @@ import time
 from api import buy, sell, get_quote, get_order, cancel_order
 
 
-venue = 'YKPGEX'
+venue = 'EFTEX'
 symbol = 'UOZP'
-account = 'IDS5292091'
+account = 'IDS5292091 '
 
 qty = 0
 position = 0

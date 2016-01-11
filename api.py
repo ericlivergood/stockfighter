@@ -1,7 +1,10 @@
 import requests
 import json
-from twisted.internet import reactor
-from autobahn.twisted.websocket import WebSocketClientProtocol, WebSocketClientFactory
+import sys
+from twisted.internet import reactor, ssl
+
+from twisted.python import log
+from autobahn.twisted.websocket import WebSocketClientProtocol, WebSocketClientFactory, connectWS
 
 
 from collections import namedtuple
@@ -58,14 +61,48 @@ def cancel_order(venue, symbol, id):
 	return json2obj(requests.delete(url, headers=headers).text)
 
 
-class QuoteClientProtocol(WebSocketClientProtocol):
-	def onMessage(self, payload, isBinary):
-		print ("Received: %(payload)s" % locals())
 
-def quote_stream(account, venue):
-   	factory = WebSocketClientFactory()
-	factory.protocol = QuoteClientProtocol
+class QuoteClientProtocol(WebSocketClientProtocol):
+	def onConnect(self, response):
+		print('Server Connected: %(response)s' % locals())
+
+	def onMessage(self, payload, isBinary):
+		data = json2obj(payload.decode('utf8'))
+		
+		last = data.quote.lastTrade
+		print ("Last Trade: %(last)s" % locals())
+
+
+def quote_stream(account, venue, protocol, debug=False):
 	url = 'wss://api.stockfighter.io/ob/api/ws/%(account)s/venues/%(venue)s/tickertape' % locals()
 
-	reactor.connectTCP(url, 80, factory)
+	log.startLogging(sys.stdout)
+	factory = WebSocketClientFactory(url, debug=debug)
+	factory.protocol = protocol
+
+    # SSL client context: default
+    ##
+	if factory.isSecure:
+		contextFactory = ssl.ClientContextFactory()
+	else:
+		contextFactory = None
+
+	connectWS(factory, contextFactory)
+	reactor.run()
+
+def quote_stream(account, venue, protocol, debug=False):
+	url = 'wss://api.stockfighter.io/ob/api/ws/%(account)s/venues/%(venue)s/tickertape' % locals()
+
+	log.startLogging(sys.stdout)
+	factory = WebSocketClientFactory(url, debug=debug)
+	factory.protocol = protocol
+
+    # SSL client context: default
+    ##
+	if factory.isSecure:
+		contextFactory = ssl.ClientContextFactory()
+	else:
+		contextFactory = None
+
+	connectWS(factory, contextFactory)
 	reactor.run()
